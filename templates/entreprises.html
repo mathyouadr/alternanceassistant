@@ -1,0 +1,86 @@
+{% extends "base.html" %}{% from "_macros.html" import badge %}
+{% block content %}
+<div class="head">
+  <div><h1>Index des entreprises</h1><p class="sub">Tout ce qui est déjà démarché et ce qui reste à démarcher.</p></div>
+  <div class="row-actions">
+    <a class="btn" href="{{ url_for('export_csv') }}">Exporter CSV</a>
+    <a class="btn primary" href="{{ url_for('entreprise') }}">+ Ajouter</a>
+  </div>
+</div>
+
+<div class="card">
+  <form class="filters" method="get">
+    <input name="q" value="{{ q }}" placeholder="Rechercher (nom, poste, ville, notes…)">
+    <select name="statut" onchange="this.form.submit()">
+      <option value="">Tous les statuts</option>
+      {% for s in STATUTS %}<option {{ 'selected' if s==statut }}>{{ s }}</option>{% endfor %}
+    </select>
+    <select name="ville" onchange="this.form.submit()">
+      <option value="">Toutes les villes</option>
+      {% for v, n in villes %}<option value="{{ v }}" {{ 'selected' if v==ville }}>{{ v }} ({{ n }})</option>{% endfor %}
+    </select>
+    <button class="btn">Filtrer</button>
+    {% if q or statut or ville %}<a class="btn" href="{{ url_for('entreprises') }}">Réinitialiser</a>{% endif %}
+  </form>
+</div>
+
+<form id="bulk" method="post" action="{{ url_for('supprimer_selection') }}"
+      onsubmit="return confirm('Supprimer les ' + document.querySelectorAll('.sel:checked').length + ' entreprise(s) sélectionnée(s) et leur historique ?')"></form>
+
+<div class="card">
+  {% if rows %}
+  <div class="bulkbar" id="bulkbar" hidden>
+    <span id="nbsel"></span>
+    <button type="button" class="btn sm" onclick="candidatureAutre([...document.querySelectorAll('.sel:checked')].map(s => s.value), document.getElementById('nbsel').textContent)">Candidaté autrement</button>
+    <button class="btn sm danger" form="bulk">Supprimer la sélection</button>
+  </div>
+  <table>
+    <tr><th style="width:28px"><input type="checkbox" id="tout" title="Tout sélectionner"></th><th>Entreprise</th><th>Poste</th><th class="hide-sm">Contact</th><th class="hide-sm">Ville</th><th>Statut</th><th class="hide-sm">Contacté le</th><th class="hide-sm">Relance</th><th></th></tr>
+    {% for e in rows %}<tr>
+      <td><input type="checkbox" class="sel" name="ids" value="{{ e.id }}" form="bulk"></td>
+      <td><a href="{{ url_for('entreprise', eid=e.id) }}"><b>{{ e.nom }}</b></a>{% if e.priorite == 1 %} <span title="Priorité haute">★</span>{% endif %}</td>
+      <td>{{ e.poste or '—' }}</td>
+      <td class="m hide-sm">{{ e.contact or e.email or '—' }}</td>
+      <td class="m hide-sm">{{ e.ville or '—' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('changer_statut', eid=e.id) }}" style="margin:0">
+          <select name="statut" onchange="this.form.submit()" style="padding:3px 6px;font-size:13px;width:auto">
+            {% for s in STATUTS %}<option {{ 'selected' if s==e.statut }}>{{ s }}</option>{% endfor %}
+          </select>
+        </form>
+      </td>
+      <td class="m hide-sm">{{ e.date_contact|fr }}</td>
+      <td class="m hide-sm {{ 'late' if e.prochaine_relance and e.prochaine_relance <= today and e.statut in ('Contacté','Relancé') }}">{{ e.prochaine_relance|fr if e.statut in ('Contacté','Relancé') else '—' }}</td>
+      <td class="row-actions">
+        {% if e.statut == 'À démarcher' %}<a class="btn sm primary" href="{{ url_for('assistant', e=e.id, type='candidature') }}">Candidater</a>
+        <button type="button" class="btn sm" title="J'ai candidaté par un autre moyen (site, LinkedIn, téléphone…)" onclick='candidatureAutre([{{ e.id }}], {{ e.nom|tojson }})'>Candidaté autrement</button>
+        {% elif e.statut in ('Contacté','Relancé') %}<a class="btn sm" href="{{ url_for('assistant', e=e.id, type='relance') }}">Relancer</a>{% endif %}
+        <form method="post" action="{{ url_for('supprimer', eid=e.id) }}" onsubmit='return confirm({{ ("Supprimer " ~ e.nom ~ " et son historique ?")|tojson }})'>
+          <button class="btn sm danger" title="Supprimer">✕</button></form>
+      </td>
+    </tr>{% endfor %}
+  </table>
+  <p class="hint">{{ rows|length }} entreprise(s)</p>
+  {% else %}<p class="empty">Aucune entreprise{{ ' pour ce filtre' if q or statut or ville }}. <a href="{{ url_for('entreprise') }}">Ajoute la première</a>.</p>{% endif %}
+</div>
+
+<script>
+const tout = document.getElementById('tout'), sels = [...document.querySelectorAll('.sel')];
+function majSel() {
+  const n = sels.filter(s => s.checked).length;
+  document.getElementById('bulkbar').hidden = n === 0;
+  document.getElementById('nbsel').textContent = n + ' sélectionnée(s)';
+  if (tout) { tout.checked = n === sels.length && n > 0; tout.indeterminate = n > 0 && n < sels.length; }
+}
+tout && tout.addEventListener('change', () => { sels.forEach(s => s.checked = tout.checked); majSel(); });
+sels.forEach(s => s.addEventListener('change', majSel));
+</script>
+
+<details class="card">
+  <summary><b>Importer depuis un CSV</b></summary>
+  <p class="hint">Colonnes reconnues (en-tête) : <code>nom</code> (obligatoire), <code>poste</code>, <code>contact</code>, <code>email</code>, <code>telephone</code>, <code>ville</code>, <code>lien</code>, <code>source</code>, <code>statut</code>, <code>notes</code>. Séparateur <code>;</code> ou <code>,</code>.</p>
+  <form method="post" action="{{ url_for('import_csv') }}" enctype="multipart/form-data" class="filters">
+    <input type="file" name="fichier" accept=".csv" required><button class="btn">Importer</button>
+  </form>
+</details>
+{% endblock %}

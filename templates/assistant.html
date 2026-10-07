@@ -1,0 +1,102 @@
+{% extends "base.html" %}{% from "_macros.html" import badge %}
+{% block content %}
+<h1>Assistant de candidature</h1>
+<p class="sub">Choisis l'entreprise et un modèle, retouche (ou fais réécrire par l'IA), puis envoie via Gmail.</p>
+
+<div class="card">
+  <form class="filters" method="get" id="choix">
+    <div style="flex:1;min-width:240px"><label>Entreprise</label>
+      <select name="e" onchange="this.form.submit()">
+        <option value="">— Mail libre (sans entreprise) —</option>
+        {% for x in ents %}<option value="{{ x.id }}" {{ 'selected' if e and x.id==e.id }}>{{ x.nom }}{{ (' — ' ~ x.poste) if x.poste }} ({{ x.statut }})</option>{% endfor %}
+      </select></div>
+    <div><label>Type</label>
+      <select name="type" onchange="this.form.m.value='';this.form.submit()">
+        <option value="candidature" {{ 'selected' if type_=='candidature' }}>Candidature</option>
+        <option value="relance" {{ 'selected' if type_=='relance' }}>Relance</option>
+      </select></div>
+    <div style="min-width:220px"><label>Modèle</label>
+      <select name="m" onchange="this.form.submit()">
+        {% for x in modeles if x.type==type_ %}<option value="{{ x.id }}" {{ 'selected' if m and x.id==m.id }}>{{ x.nom }}</option>{% endfor %}
+      </select></div>
+  </form>
+</div>
+
+<form method="post" action="{{ url_for('assistant_envoyer') }}" class="compose" id="mailform">
+  <input type="hidden" name="eid" value="{{ e.id if e }}">
+  <input type="hidden" name="type" value="{{ type_ }}">
+  <div class="card">
+    <div class="fields">
+      <div class="full"><label>À</label><input type="email" name="dest" value="{{ e.email or '' if e }}" placeholder="recruteur@entreprise.fr" required></div>
+      <div class="full"><label>Objet</label><input name="sujet" id="sujet" value="{{ sujet }}" required></div>
+      <div class="full"><label>Message</label><textarea name="corps" id="corps" required>{{ corps }}</textarea></div>
+    </div>
+    <div class="row-actions" style="justify-content:flex-start">
+      <button class="btn primary" name="action" value="envoyer" onclick="return confirm('Envoyer ce mail à ' + this.form.dest.value + ' ?')">Envoyer via Gmail</button>
+      <button class="btn" name="action" value="brouillon" formnovalidate>Enregistrer comme brouillon</button>
+    </div>
+  </div>
+
+  <div>
+    {% if e %}<div class="card">
+      <h2>{{ e.nom }}</h2>
+      <p style="margin:0">{{ badge(e.statut) }}</p>
+      <p class="hint">{{ e.poste or '' }}{{ (' · ' ~ e.ville) if e.ville }}<br>
+        Contacté le {{ e.date_contact|fr }}{% if e.nb_relances %} · {{ e.nb_relances }} relance(s){% endif %}</p>
+      {% if e.notes %}<p class="hint" style="white-space:pre-wrap">{{ e.notes }}</p>{% endif %}
+      <p style="margin:0 0 10px"><button type="button" class="btn sm" title="J'ai candidaté par un autre moyen (site, LinkedIn, téléphone…)" onclick='candidatureAutre([{{ e.id }}], {{ e.nom|tojson }})'>Candidaté autrement</button></p>
+      <a href="{{ url_for('entreprise', eid=e.id) }}">Modifier la fiche →</a>
+    </div>{% endif %}
+
+    <div class="card">
+      <h2>Réécriture IA</h2>
+      {% if ia %}
+        <div class="chips" style="margin-bottom:10px">
+          {% for c in ['Plus percutant','Plus court','Plus formel','Plus chaleureux','Corriger les fautes','Personnaliser pour cette entreprise'] %}
+            <button type="button" class="chip" onclick="reecrire('{{ c }}')">{{ c }}</button>
+          {% endfor %}
+        </div>
+        <textarea id="consigne" placeholder="Ou une consigne libre : « mentionne mon projet X », « ton plus direct »…" style="min-height:60px"></textarea>
+        <button type="button" class="btn" style="margin-top:8px" onclick="reecrire(document.getElementById('consigne').value)">Réécrire</button>
+        <button type="button" class="btn" style="margin-top:8px" id="annuler" hidden onclick="annuler()">Annuler</button>
+        <p class="hint" id="iastatus"></p>
+      {% else %}
+        <p class="hint">Ajoute une clé API Anthropic dans <a href="{{ url_for('parametres') }}">Paramètres</a> pour réécrire tes mails avec l'IA.</p>
+      {% endif %}
+    </div>
+
+    <div class="card checks">
+      <h2>Pièces jointes</h2>
+      {% for p in pjs %}<label><input type="checkbox" name="pieces" value="{{ p }}" {{ 'checked' if type_=='candidature' }}> {{ p }}</label>
+      {% else %}<p class="hint">Aucune. Ajoute ton CV dans <a href="{{ url_for('parametres') }}">Paramètres</a>.</p>{% endfor %}
+    </div>
+  </div>
+</form>
+
+<script>
+let precedent = null;
+async function reecrire(consigne) {
+  const st = document.getElementById('iastatus');
+  const sujet = document.getElementById('sujet'), corps = document.getElementById('corps');
+  st.textContent = 'Réécriture en cours…';
+  try {
+    const r = await fetch('{{ url_for("api_reecrire") }}', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({eid: '{{ e.id if e }}' || null, sujet: sujet.value, corps: corps.value, consigne})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    precedent = {sujet: sujet.value, corps: corps.value};
+    if (d.sujet) sujet.value = d.sujet;
+    if (d.corps) corps.value = d.corps;
+    document.getElementById('annuler').hidden = false;
+    st.textContent = 'Fait ✔ — relis avant d\'envoyer.';
+  } catch (e) { st.textContent = e.message; }
+}
+function annuler() {
+  if (!precedent) return;
+  document.getElementById('sujet').value = precedent.sujet;
+  document.getElementById('corps').value = precedent.corps;
+  document.getElementById('annuler').hidden = true;
+  document.getElementById('iastatus').textContent = 'Version précédente restaurée.';
+}
+</script>
+{% endblock %}

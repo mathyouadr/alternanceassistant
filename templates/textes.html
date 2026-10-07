@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="head">
+  <div><h1>Textes à copier</h1>
+    <p class="sub">Tes textes prêts à coller dans un formulaire, sur LinkedIn ou ailleurs. Tu peux retoucher le texte avant de copier (ça ne modifie pas le modèle).</p></div>
+</div>
+
+<div class="card">
+  <form class="filters" method="get">
+    <div style="flex:1;min-width:260px"><label>Remplir pour une entreprise (optionnel)</label>
+      <select name="e" onchange="this.form.submit()">
+        <option value="">— Aucune : garder les {variables} —</option>
+        {% for x in ents %}<option value="{{ x.id }}" {{ 'selected' if e and x.id==e.id }}>{{ x.nom }}{{ (' — ' ~ x.poste) if x.poste }}</option>{% endfor %}
+      </select></div>
+  </form>
+  <p class="hint">Variables : <code>{entreprise}</code> <code>{poste}</code> <code>{contact}</code> <code>{ville}</code> <code>{mon_nom}</code> <code>{signature}</code>. Les <code>[crochets]</code> sont à compléter toi-même, une fois pour toutes dans « Modifier ».</p>
+</div>
+
+{% for t in rows %}
+<div class="card">
+  <div class="head" style="margin-bottom:10px">
+    <h2 style="margin:0">{{ t.titre }}</h2>
+  </div>
+  <div class="copybox">
+    <textarea id="t{{ t.id }}" oninput="auto(this)">{{ t.rendu }}</textarea>
+    <button type="button" class="btn primary" onclick="copier('t{{ t.id }}', this)">Copier</button>
+  </div>
+  <details style="margin-top:10px">
+    <summary class="hint">Modifier le modèle</summary>
+    <form method="post" style="margin-top:10px">
+      <input type="hidden" name="id" value="{{ t.id }}"><input type="hidden" name="e" value="{{ e.id if e }}">
+      <div class="fields">
+        <div class="full"><label>Titre</label><input name="titre" value="{{ t.titre }}" required></div>
+        <div class="full"><label>Texte (avec variables)</label><textarea name="contenu" style="min-height:160px" required>{{ t.contenu }}</textarea></div>
+      </div>
+      <div class="row-actions" style="justify-content:flex-start">
+        <button class="btn primary">Enregistrer</button>
+        <button class="btn danger" formaction="{{ url_for('texte_supprimer', tid=t.id) }}" formnovalidate
+                onclick='return confirm({{ ("Supprimer « " ~ t.titre ~ " » ?")|tojson }})'>Supprimer</button>
+      </div>
+    </form>
+  </details>
+</div>
+{% endfor %}
+
+<details class="card" {{ 'open' if not rows }}>
+  <summary><b>+ Nouveau texte</b></summary>
+  <form method="post" style="margin-top:14px">
+    <input type="hidden" name="e" value="{{ e.id if e }}">
+    <div class="fields">
+      <div class="full"><label>Titre</label><input name="titre" required placeholder="ex. Réponse « Vos qualités ? »"></div>
+      <div class="full"><label>Texte</label><textarea name="contenu" style="min-height:160px" required></textarea></div>
+    </div>
+    <button class="btn primary">Ajouter</button>
+  </form>
+</details>
+
+<h2 style="margin-top:28px">Tes modèles de mails</h2>
+<p class="hint" style="margin-top:-6px">Pour les copier dans une autre messagerie ou un formulaire. Ils se modifient dans <a href="{{ url_for('modeles') }}">Modèles de mails</a>.</p>
+{% for m in mails %}
+<div class="card">
+  <h2>{{ m.nom }} <span class="hint">· {{ m.type }}</span></h2>
+  <div class="copybox" style="margin-bottom:8px">
+    <input id="ms{{ m.id }}" value="{{ m.sujet_rendu }}">
+    <button type="button" class="btn" onclick="copier('ms{{ m.id }}', this)">Copier l'objet</button>
+  </div>
+  <div class="copybox">
+    <textarea id="mc{{ m.id }}" oninput="auto(this)">{{ m.corps_rendu }}</textarea>
+    <button type="button" class="btn primary" onclick="copier('mc{{ m.id }}', this)">Copier le message</button>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+function auto(t) { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+document.querySelectorAll('.copybox textarea').forEach(auto);
+
+async function copier(id, btn) {
+  const el = document.getElementById(id), txt = el.value;
+  try { await navigator.clipboard.writeText(txt); }
+  catch (_) { el.select(); document.execCommand('copy'); }
+  const label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+  btn.textContent = 'Copié ✔'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = label; btn.classList.remove('copied'); }, 1500);
+}
+</script>
+{% endblock %}

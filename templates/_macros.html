@@ -1,0 +1,4 @@
+{% macro badge(s) -%}
+  {%- set cls = {'À démarcher':'demarcher','Contacté':'contacte','Relancé':'relance','Entretien':'entretien','Refusé':'refuse','Accepté':'accepte','Abandonné':'abandonne'} -%}
+  <span class="badge b-{{ cls.get(s, 'demarcher') }}">{{ s }}</span>
+{%- endmacro %}

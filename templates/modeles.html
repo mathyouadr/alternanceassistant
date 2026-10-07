@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% macro formulaire(x) %}
+<form method="post">
+  <input type="hidden" name="id" value="{{ x.id if x }}">
+  <div class="fields">
+    <div><label>Nom du modèle</label><input name="nom" value="{{ x.nom if x }}" required></div>
+    <div><label>Type</label><select name="type">
+      <option value="candidature" {{ 'selected' if x and x.type=='candidature' }}>Candidature</option>
+      <option value="relance" {{ 'selected' if x and x.type=='relance' }}>Relance</option></select></div>
+    <div class="full"><label>Objet</label><input name="sujet" value="{{ x.sujet if x }}" required></div>
+    <div class="full"><label>Message</label><textarea name="corps" style="min-height:200px" required>{{ x.corps if x }}</textarea></div>
+  </div>
+  <button class="btn primary">Enregistrer</button>
+</form>
+{% endmacro %}
+{% block content %}
+<h1>Modèles de mails</h1>
+<p class="sub">Variables disponibles : <code>{entreprise}</code> <code>{poste}</code> <code>{contact}</code> <code>{ville}</code> <code>{date_contact}</code> <code>{mon_nom}</code> <code>{signature}</code></p>
+{% for x in rows %}
+  <details class="card">
+    <summary><b>{{ x.nom }}</b> <span class="hint">· {{ x.type }}</span></summary>
+    <div style="margin-top:14px">{{ formulaire(x) }}</div>
+    <form method="post" action="{{ url_for('modele_supprimer', mid=x.id) }}" onsubmit="return confirm('Supprimer ce modèle ?')" style="margin-top:8px"><button class="btn sm danger">Supprimer</button></form>
+  </details>
+{% endfor %}
+<details class="card" {{ 'open' if not rows }}>
+  <summary><b>+ Nouveau modèle</b></summary>
+  <div style="margin-top:14px">{{ formulaire(none) }}</div>
+</details>
+{% endblock %}

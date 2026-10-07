@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% from "_macros.html" import badge %}
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ e.nom if e else 'Nouvelle entreprise' }}</h1>
+    <p class="sub">{% if e %}{{ badge(e.statut) }} · ajoutée le {{ e.date_ajout|fr }}{% if e.nb_relances %} · {{ e.nb_relances }} relance(s){% endif %}{% else %}Ajoute une entreprise à démarcher ou déjà contactée.{% endif %}</p>
+  </div>
+  {% if e %}<div class="row-actions">
+    <a class="btn primary" href="{{ url_for('assistant', e=e.id) }}">{{ 'Relancer' if e.statut in ('Contacté','Relancé') else 'Écrire un mail' }}</a>
+    <button type="button" class="btn" title="J'ai candidaté par un autre moyen (site, LinkedIn, téléphone…)" onclick='candidatureAutre([{{ e.id }}], {{ e.nom|tojson }})'>Candidaté autrement</button>
+    <form method="post" action="{{ url_for('supprimer', eid=e.id) }}" onsubmit='return confirm({{ ("Supprimer " ~ e.nom ~ " et son historique ?")|tojson }})'><button class="btn danger">Supprimer</button></form>
+  </div>{% endif %}
+</div>
+
+<form method="post" class="card">
+  <div class="fields">
+    <div><label>Entreprise *</label><input name="nom" value="{{ e.nom if e }}" required autofocus></div>
+    <div><label>Poste visé</label><input name="poste" value="{{ e.poste or '' if e }}" placeholder="ex. Développeur web"></div>
+    <div><label>Statut</label><select name="statut">{% for s in STATUTS %}<option {{ 'selected' if e and s==e.statut }}>{{ s }}</option>{% endfor %}</select></div>
+    <div><label>Priorité</label><select name="priorite">
+      {% for v,l in [(1,'★ Haute'),(2,'Normale'),(3,'Basse')] %}<option value="{{ v }}" {{ 'selected' if (e.priorite if e else 2)==v }}>{{ l }}</option>{% endfor %}
+    </select></div>
+    <div><label>Nom du contact</label><input name="contact" value="{{ e.contact or '' if e }}" placeholder="ex. Madame Dupont"></div>
+    <div><label>Email</label><input type="email" name="email" value="{{ e.email or '' if e }}"></div>
+    <div><label>Téléphone</label><input name="telephone" value="{{ e.telephone or '' if e }}"></div>
+    <div><label>Ville</label><input name="ville" value="{{ e.ville or '' if e }}"></div>
+    <div><label>Lien de l'offre / site</label><input name="lien" value="{{ e.lien or '' if e }}"></div>
+    <div><label>Source</label><input name="source" value="{{ e.source or '' if e }}" list="sources" placeholder="Indeed, LinkedIn, salon…">
+      <datalist id="sources"><option>LinkedIn</option><option>Indeed</option><option>Welcome to the Jungle</option><option>La bonne alternance</option><option>Site de l'entreprise</option><option>Candidature spontanée</option><option>Salon / forum</option><option>Réseau / recommandation</option></datalist></div>
+    <div><label>Date de 1er contact</label><input type="date" name="date_contact" value="{{ e.date_contact or '' if e }}"></div>
+    <div><label>Prochaine relance</label><input type="date" name="prochaine_relance" value="{{ e.prochaine_relance or '' if e }}"></div>
+    <div class="full"><label>Notes</label><textarea name="notes" placeholder="Ce que fait l'entreprise, pourquoi elle t'intéresse, retours d'entretien… (utilisé par l'IA pour personnaliser)">{{ e.notes or '' if e }}</textarea></div>
+  </div>
+  <button class="btn primary">Enregistrer</button>
+  {% if e and e.lien %}<a class="btn" href="{{ e.lien }}" target="_blank" rel="noopener">Ouvrir le lien ↗</a>{% endif %}
+</form>
+
+{% if e %}
+<div class="card">
+  <h2>Historique des candidatures et échanges</h2>
+  {% for m in emails %}
+    <details style="border-bottom:1px solid var(--line);padding:8px 0">
+      <summary>{{ m.date_envoi|fr }} · <b>{{ m.type }}</b> · {{ m.sujet }} <span class="hint">({{ m.statut }})</span></summary>
+      <p class="hint">{% if m.statut == 'hors mail' %}Enregistrée sans mail{% else %}À : {{ m.destinataire }}{% endif %}{% if m.pieces %} · PJ : {{ m.pieces }}{% endif %}</p>
+      {% if m.corps %}<pre class="mail">{{ m.corps }}</pre>{% endif %}
+      <form method="post" action="{{ url_for('supprimer_email', mid=m.id) }}" onsubmit="return confirm('Supprimer cette entrée de l’historique ?')" style="margin:6px 0 0"><button class="btn sm danger">Supprimer de l’historique</button></form>
+    </details>
+  {% else %}<p class="empty">Aucun mail pour cette entreprise.</p>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

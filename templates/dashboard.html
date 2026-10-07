@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% from "_macros.html" import badge %}
+{% block content %}
+<div class="head">
+  <div><h1>Tableau de bord</h1><p class="sub">Où en est ta recherche d'alternance.</p></div>
+  <div class="row-actions">
+    <a class="btn" href="{{ url_for('entreprise') }}">+ Ajouter une entreprise</a>
+    <a class="btn primary" href="{{ url_for('assistant') }}">Écrire une candidature</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b>{{ total }}</b><small>entreprises suivies</small></div>
+  <div class="stat"><b>{{ stats['À démarcher'] }}</b><small>à démarcher</small></div>
+  <div class="stat"><b>{{ stats['Contacté'] + stats['Relancé'] }}</b><small>en attente de réponse</small></div>
+  <div class="stat"><b>{{ nb_relances_dues }}</b><small>relances à faire</small></div>
+  <div class="stat"><b>{{ stats['Entretien'] }}</b><small>entretiens</small></div>
+  <div class="stat"><b>{{ semaine }}</b><small>mails cette semaine ({{ envoyes }} au total)</small></div>
+</div>
+
+{% set couleurs = {'À démarcher':'#b9b6ad','Contacté':'#4f7fb8','Relancé':'#d27a3c','Entretien':'#9a5bbd','Refusé':'#c2524c','Accepté':'#3f9a50','Abandonné':'#8a8984'} %}
+<div class="card">
+  <h2>Pipeline <span class="hint">— taux de réponse :
+    {% if taux.pct is none %}aucune entreprise contactée pour l'instant
+    {% else %}{{ taux.pct }} % ({{ taux.rep }} réponse{{ 's' if taux.rep > 1 }} sur {{ taux.cont }} contactée{{ 's' if taux.cont > 1 }}){% endif %}</span></h2>
+  <div class="pipeline">
+    {% for s in STATUTS if stats[s] %}<div style="width:{{ 100*stats[s]/total }}%;background:{{ couleurs[s] }}" title="{{ s }} : {{ stats[s] }}"></div>{% endfor %}
+  </div>
+  <div class="legend">{% for s in STATUTS %}<span><i style="background:{{ couleurs[s] }}"></i>{{ s }} {{ stats[s] }}</span>{% endfor %}</div>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h2>Relances à faire</h2>
+    {% if dues %}<table>
+      {% for e in dues %}<tr>
+        <td><a href="{{ url_for('entreprise', eid=e.id) }}">{{ e.nom }}</a><br><span class="hint">{{ e.poste or '' }}</span></td>
+        <td class="late">{{ e.prochaine_relance|ecart }}</td>
+        <td class="row-actions"><a class="btn sm primary" href="{{ url_for('assistant', e=e.id, type='relance') }}">Relancer</a></td>
+      </tr>{% endfor %}
+    </table>{% else %}<p class="empty">Rien à relancer aujourd'hui 🎉</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Prochaines à démarcher</h2>
+    {% if a_demarcher %}<table>
+      {% for e in a_demarcher %}<tr>
+        <td><a href="{{ url_for('entreprise', eid=e.id) }}">{{ e.nom }}</a><br><span class="hint">{{ e.poste or '' }} {{ ('· ' ~ e.ville) if e.ville }}</span></td>
+        <td class="row-actions"><a class="btn sm" href="{{ url_for('assistant', e=e.id, type='candidature') }}">Candidater</a> <button type="button" class="btn sm" title="J'ai candidaté par un autre moyen (site, LinkedIn, téléphone…)" onclick='candidatureAutre([{{ e.id }}], {{ e.nom|tojson }})'>Candidaté autrement</button></td>
+      </tr>{% endfor %}
+    </table>{% else %}<p class="empty">Aucune entreprise en attente. <a href="{{ url_for('entreprise') }}">Ajoutes-en une</a>.</p>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Dernières candidatures &amp; mails</h2>
+  {% if derniers %}<table>
+    <tr><th>Date</th><th>Entreprise</th><th>Type</th><th>Sujet</th><th>Statut</th></tr>
+    {% for m in derniers %}<tr>
+      <td class="m">{{ m.date_envoi|fr }}</td><td>{{ m.entreprise or '—' }}</td><td class="m">{{ m.type }}</td>
+      <td>{{ m.sujet }}</td><td class="m">{{ m.statut }}</td>
+    </tr>{% endfor %}
+  </table>{% else %}<p class="empty">Aucun mail envoyé pour l'instant.</p>{% endif %}
+</div>
+{% endblock %}

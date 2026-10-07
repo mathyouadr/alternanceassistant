@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AlternanceAssistant{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="layout">
+  <nav class="side">
+    <div class="brand">Alternance<span>Assistant</span></div>
+    {% set ep = request.endpoint %}
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep=='dashboard' }}">Tableau de bord</a>
+    <a href="{{ url_for('entreprises') }}" class="{{ 'active' if ep in ('entreprises','entreprise') }}">Index entreprises</a>
+    <a href="{{ url_for('relances') }}" class="{{ 'active' if ep=='relances' }}">Relances {% if nb_relances_dues %}<span class="count">{{ nb_relances_dues }}</span>{% endif %}</a>
+    <a href="{{ url_for('assistant') }}" class="{{ 'active' if ep=='assistant' }}">Assistant candidature</a>
+    <a href="{{ url_for('textes') }}" class="{{ 'active' if ep=='textes' }}">Textes à copier</a>
+    <a href="{{ url_for('historique') }}" class="{{ 'active' if ep=='historique' }}">Historique</a>
+    <div class="sep"></div>
+    <a href="{{ url_for('modeles') }}" class="{{ 'active' if ep=='modeles' }}">Modèles de mails</a>
+    <a href="{{ url_for('parametres') }}" class="{{ 'active' if ep=='parametres' }}">Paramètres</a>
+  </nav>
+  <main>
+    {% if not cfg_ok and ep != 'parametres' %}
+      <div class="banner">Gmail n'est pas encore configuré — <a href="{{ url_for('parametres') }}">renseigne ton adresse et ton mot de passe d'application</a> pour pouvoir envoyer des mails.</div>
+    {% endif %}
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<dialog id="dlg-autre">
+  <form method="post" action="{{ url_for('candidature_autre') }}">
+    <h2>Candidature par un autre moyen</h2>
+    <p class="hint" id="dlg-autre-qui"></p>
+    <div id="dlg-autre-ids"></div>
+    <div class="fields">
+      <div class="full"><label>Par quel moyen ?</label>
+        <input name="moyen" list="moyens" required placeholder="Site de l'entreprise, LinkedIn, téléphone…">
+        <datalist id="moyens">{% for m in MOYENS %}<option>{{ m }}</option>{% endfor %}</datalist></div>
+      <div><label>Date</label><input type="date" name="date" value="{{ today }}" max="{{ today }}"></div>
+      <div class="full"><label>Note (optionnel)</label>
+        <textarea name="note" style="min-height:60px" placeholder="ex. formulaire en ligne, réf. de l'offre, nom de la personne au téléphone…"></textarea></div>
+    </div>
+    <p class="hint">Le statut passe à « Contacté » et une relance est programmée. Aucun mail n'est envoyé.</p>
+    <div class="row-actions">
+      <button type="button" class="btn" onclick="this.closest('dialog').close()">Annuler</button>
+      <button class="btn primary">Enregistrer la candidature</button>
+    </div>
+  </form>
+</dialog>
+<script>
+function candidatureAutre(ids, label) {
+  const d = document.getElementById('dlg-autre');
+  document.getElementById('dlg-autre-ids').innerHTML =
+    ids.map(i => '<input type="hidden" name="ids" value="' + Number(i) + '">').join('');
+  document.getElementById('dlg-autre-qui').textContent = label;
+  d.showModal();
+  d.querySelector('[name=moyen]').focus();
+}
+</script>
+</body>
+</html>

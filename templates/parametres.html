@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Paramètres</h1>
+<p class="sub">Stockés uniquement sur ton PC, dans <code>data/config.json</code>.</p>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="card">
+    <h2>Toi</h2>
+    <div class="fields">
+      <div><label>Ton nom complet</label><input name="nom" value="{{ cfg.nom }}"></div>
+      <div><label>Poste recherché (par défaut)</label><input name="poste_defaut" value="{{ cfg.poste_defaut }}" placeholder="ex. développeur web">
+        <p class="hint">Utilisé dans les mails quand la fiche entreprise n'a pas de poste.</p></div>
+      <div><label>Délai avant relance (jours)</label><input type="number" min="1" name="delai_relance" value="{{ cfg.delai_relance }}"></div>
+      <div class="full"><label>Signature</label><textarea name="signature">{{ cfg.signature }}</textarea>
+        <p class="hint"><code>{mon_nom}</code> est remplacé par ton nom. Ajoute ton téléphone, LinkedIn, formation…</p></div>
+      <div class="full"><label>Ton profil (pour l'IA)</label><textarea name="profil" placeholder="ex. BTS SIO 2e année, rythme 2 sem / 2 sem, à partir de septembre, compétences Python, SQL, réseaux…">{{ cfg.profil }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Gmail (SMTP)</h2>
+    <div class="fields">
+      <div><label>Adresse Gmail</label><input type="email" name="gmail" value="{{ cfg.gmail }}" placeholder="toi@gmail.com"></div>
+      <div><label>Mot de passe d'application {{ '✔ enregistré' if cfg.app_password }}</label>
+        <input type="password" name="app_password" placeholder="{{ 'laisser vide pour ne pas changer' if cfg.app_password else 'xxxx xxxx xxxx xxxx' }}" autocomplete="new-password"></div>
+    </div>
+    <p class="hint">Gmail n'accepte pas ton mot de passe normal : active la validation en 2 étapes, puis crée un
+      <b>mot de passe d'application</b> sur <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> (16 caractères).</p>
+  </div>
+
+  <div class="card">
+    <h2>Pièces jointes (CV, lettre…)</h2>
+    {% for p in pjs %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">📎 {{ p }}
+        <button class="btn sm danger" formaction="{{ url_for('pj_supprimer', nom=p) }}" formnovalidate onclick='return confirm({{ ("Retirer " ~ p ~ " ?")|tojson }})'>Retirer</button></div>
+    {% else %}<p class="hint">Aucune pièce jointe.</p>{% endfor %}
+    <input type="file" name="pj" multiple style="margin-top:8px">
+  </div>
+
+  <div class="card">
+    <h2>Réécriture IA (optionnel)</h2>
+    <div class="fields">
+      <div><label>Clé API Anthropic {{ '✔ enregistrée' if cfg.anthropic_key }}</label>
+        <input type="password" name="anthropic_key" placeholder="{{ 'laisser vide pour ne pas changer' if cfg.anthropic_key else 'sk-ant-…' }}" autocomplete="off"></div>
+      <div><label>Modèle</label><input name="anthropic_model" value="{{ cfg.anthropic_model }}"></div>
+    </div>
+    <p class="hint">Clé à créer sur <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Sans clé, tout le reste fonctionne.</p>
+  </div>
+
+  <button class="btn primary">Enregistrer</button>
+  {% if cfg.app_password %}<button class="btn" formaction="{{ url_for('test_smtp') }}" formnovalidate>Envoyer un mail de test à moi-même</button>{% endif %}
+</form>
+{% endblock %}

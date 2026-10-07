@@ -1,0 +1,6 @@
+# Données perso : base, config (mot de passe Gmail, clé API), CV
+data/
+__pycache__/
+*.pyc
+.venv/
+venv/

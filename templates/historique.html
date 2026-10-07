@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Historique</h1>
+<p class="sub">Mails envoyés, brouillons et candidatures faites par un autre moyen.</p>
+<div class="card">
+  {% for m in rows %}
+    <details style="border-bottom:1px solid var(--line);padding:8px 0">
+      <summary>{{ m.date_envoi|fr }} · <b>{{ m.entreprise or 'Sans entreprise' }}</b> · {{ m.type }} · {{ m.sujet }} <span class="hint">({{ m.statut }})</span></summary>
+      <p class="hint">{% if m.statut == 'hors mail' %}Enregistrée sans mail{% else %}À : {{ m.destinataire or '—' }}{% endif %}{% if m.pieces %} · PJ : {{ m.pieces }}{% endif %}
+        {% if m.entreprise_id %} · <a href="{{ url_for('entreprise', eid=m.entreprise_id) }}">voir la fiche</a>{% endif %}</p>
+      {% if m.corps %}<pre class="mail">{{ m.corps }}</pre>{% endif %}
+      <form method="post" action="{{ url_for('supprimer_email', mid=m.id) }}" onsubmit="return confirm('Supprimer cette entrée de l’historique ?')" style="margin:6px 0 0"><button class="btn sm danger">Supprimer de l’historique</button></form>
+    </details>
+  {% else %}<p class="empty">Aucun mail pour l'instant.</p>{% endfor %}
+</div>
+{% endblock %}

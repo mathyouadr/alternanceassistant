@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% from "_macros.html" import badge %}
+{% macro ligne(e, due) %}
+<tr>
+  <td><a href="{{ url_for('entreprise', eid=e.id) }}"><b>{{ e.nom }}</b></a><br><span class="hint">{{ e.poste or '' }}{{ (' · ' ~ e.email) if e.email }}</span></td>
+  <td>{{ badge(e.statut) }}{% if e.nb_relances %} <span class="hint">×{{ e.nb_relances }}</span>{% endif %}</td>
+  <td class="m hide-sm">contacté le {{ e.date_contact|fr }}</td>
+  <td class="{{ 'late' if due else 'm' }}">{{ e.prochaine_relance|fr }}<br><span class="hint">{{ e.prochaine_relance|ecart }}</span></td>
+  <td class="row-actions">
+    <a class="btn sm primary" href="{{ url_for('assistant', e=e.id, type='relance') }}">Rédiger la relance</a>
+    <form method="post" action="{{ url_for('relance_action', eid=e.id, action='faite') }}"><button class="btn sm" title="Tu as relancé par un autre moyen (tel, LinkedIn…)">Marquer relancé</button></form>
+    <form method="post" action="{{ url_for('relance_action', eid=e.id, action='reporter') }}"><input type="hidden" name="jours" value="3"><button class="btn sm">+3 j</button></form>
+    <form method="post" action="{{ url_for('relance_action', eid=e.id, action='stop') }}"><button class="btn sm danger" title="Ne plus relancer">Stop</button></form>
+  </td>
+</tr>
+{% endmacro %}
+{% block content %}
+<h1>Relances</h1>
+<p class="sub">Les entreprises contactées sans réponse. Une relance est programmée automatiquement après chaque envoi.</p>
+
+<div class="card">
+  <h2>À faire maintenant <span class="hint">({{ a_faire|length }})</span></h2>
+  {% if a_faire %}<table>{% for e in a_faire %}{{ ligne(e, true) }}{% endfor %}</table>
+  {% else %}<p class="empty">Aucune relance en retard. 👌</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>À venir <span class="hint">({{ a_venir|length }})</span></h2>
+  {% if a_venir %}<table>{% for e in a_venir %}{{ ligne(e, false) }}{% endfor %}</table>
+  {% else %}<p class="empty">Rien de programmé.</p>{% endif %}
+</div>
+
+{% if sans_date %}
+<div class="card">
+  <h2>En attente, sans relance programmée <span class="hint">({{ sans_date|length }})</span></h2>
+  <table>{% for e in sans_date %}<tr>
+    <td><a href="{{ url_for('entreprise', eid=e.id) }}"><b>{{ e.nom }}</b></a></td><td>{{ badge(e.statut) }}</td>
+    <td class="row-actions">
+      <form method="post" action="{{ url_for('relance_action', eid=e.id, action='reporter') }}"><input type="hidden" name="jours" value="0"><button class="btn sm">Programmer aujourd'hui</button></form>
+      <a class="btn sm" href="{{ url_for('entreprise', eid=e.id) }}">Choisir une date</a>
+    </td></tr>{% endfor %}</table>
+</div>
+{% endif %}
+{% endblock %}
